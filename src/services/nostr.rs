@@ -1,15 +1,14 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 use nostr_sdk::{
-    nips::nip46::Message,
     prelude::*,
-    prelude::{decrypt, Conditions, RemoteSigner},
+    prelude::{Conditions, RemoteSigner},
     secp256k1::XOnlyPublicKey,
-    Client, Keys, Kind, RelayPoolNotification,
+    Client, Keys,
 };
 use nostr_sdk::{EventId, UnsignedEvent, Url};
 use wasm_bindgen_futures::spawn_local;
-use web_sys::console::{self};
 use yew::{AttrValue, Callback};
 
 use anyhow::Result;
@@ -48,7 +47,7 @@ impl NostrService {
     pub fn add_relay(&self, relay: Url) -> Result<()> {
         let client = self.client.clone();
         spawn_local(async move {
-            let client = client.lock().unwrap();
+            let client = client.lock().await;
             client.add_relay(relay).await.ok();
             client.connect().await;
         });
@@ -61,10 +60,10 @@ impl NostrService {
         let mut relays = self.relays.clone();
         relays.extend(new_relays);
         spawn_local(async move {
-            let mut client = client.lock().unwrap();
+            let mut client = client.lock().await;
             let keys = client.keys();
             let new_client = Client::new(&keys);
-            if let Ok(_) = new_client.add_relays(relays.into_iter().collect()).await {
+            if (new_client.add_relays(relays.into_iter().collect()).await).is_ok() {
                 new_client.connect().await;
                 *client = new_client;
             } else {
@@ -81,7 +80,7 @@ impl NostrService {
         let delegation_token = self.delegation_token.clone();
 
         spawn_local(async move {
-            let client = client.lock().unwrap();
+            let client = client.lock().await;
             let pubkey = client.keys().public_key();
 
             let mut conditions = Conditions::new();
@@ -104,7 +103,7 @@ impl NostrService {
                         };
 
                         debug!("{:?}", delegation_tag);
-                        let mut delegation = delegation_token.lock().unwrap();
+                        let mut delegation = delegation_token.lock().await;
                         *delegation = Some(delegation_tag);
 
                         // TODO: Since there is now a delegation there is no need for remote signer
@@ -122,7 +121,7 @@ impl NostrService {
         let client = self.client.clone();
         spawn_local(async move {
             debug!("Waiting for pubkey");
-            let client = client.lock().unwrap();
+            let client = client.lock().await;
 
             client.connect().await;
 
@@ -145,7 +144,7 @@ impl NostrService {
         let content = content.to_owned();
         let delegation_tag = self.delegation_token.clone();
         spawn_local(async move {
-            let delegation_tag = delegation_tag.lock().unwrap();
+            let delegation_tag = delegation_tag.lock().await;
             let tag = match &*delegation_tag {
                 Some(tag) => vec![tag.to_owned()],
                 None => vec![],
@@ -153,7 +152,7 @@ impl NostrService {
 
             let event_id = client
                 .lock()
-                .unwrap()
+                .await
                 .publish_text_note(content, &tag)
                 .await
                 .unwrap();
@@ -163,20 +162,21 @@ impl NostrService {
         Ok(())
     }
 
+    /*
     /// Wait for event
     pub fn wait_for_event(&self, callback: Callback<Message>) {
         let client = self.client.clone();
 
         spawn_local(async move {
             debug!("Wait for event");
-            let mut notifications = client.lock().unwrap().notifications();
+            let mut notifications = client.lock().await.notifications();
             while let Ok(notification) = notifications.recv().await {
                 if let RelayPoolNotification::Event(_url, event) = notification {
                     console::log_1(&format!("Got event: {:?}", event).into());
                     match event.kind {
                         Kind::NostrConnect => {
                             // Decrypt  nostr connect message
-                            let sk = &client.lock().unwrap().keys().secret_key().unwrap();
+                            let sk = &client.lock().await.keys().secret_key().unwrap();
                             match decrypt(sk, &event.pubkey, &event.content) {
                                 Ok(msg) => {
                                     // NIP46 message from json
@@ -193,4 +193,5 @@ impl NostrService {
             }
         });
     }
+    */
 }

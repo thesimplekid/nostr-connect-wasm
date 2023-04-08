@@ -1,4 +1,4 @@
-use web_sys::{HtmlInputElement, Window};
+use web_sys::HtmlInputElement;
 use yew::prelude::*;
 
 enum State {
@@ -6,7 +6,6 @@ enum State {
     Connected,
 }
 pub enum Msg {
-    RedirectConnect,
     SubmitNote(String),
 }
 
@@ -33,12 +32,6 @@ impl Component for Home {
 
     fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
-            Msg::RedirectConnect => {
-                // HACK: I think this is a hack and would rather us the router
-                let window: Window = web_sys::window().expect("window not available");
-                let location = window.location();
-                let _ = location.set_href("/connect");
-            }
             Msg::SubmitNote(_value) => {}
         }
 

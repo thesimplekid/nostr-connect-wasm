@@ -13,7 +13,7 @@ use yew::virtual_dom::VNode;
 
 #[derive(Debug)]
 enum State {
-    SetRelay,
+    // SetRelay,
     Connect,
 }
 
@@ -115,13 +115,13 @@ impl Component for Connect {
 
     fn view(&self, ctx: &Context<Self>) -> Html {
         match self.state {
-            State::SetRelay => self.set_relay(ctx),
+            // State::SetRelay => self.set_relay(ctx),
             State::Connect => self.connect_info(ctx),
         }
     }
 }
 impl Connect {
-    fn set_relay(&self, ctx: &Context<Self>) -> Html {
+    fn _set_relay(&self, ctx: &Context<Self>) -> Html {
         html! {
         <>
             <input

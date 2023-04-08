@@ -31,7 +31,7 @@ pub enum Msg {
 
 pub struct App {
     view: View,
-    navbar_active: bool,
+    //navbar_active: bool,
     client: NostrService,
     broadcasted_event: Option<AttrValue>,
     props: ConnectProps,
@@ -56,7 +56,7 @@ impl Component for App {
         let set_relay_callback = ctx.link().callback(Msg::SetRelay);
 
         Self {
-            navbar_active: false,
+            // navbar_active: false,
             client,
             view: View::Connect,
             broadcasted_event: None,
