@@ -797,6 +797,7 @@ dependencies = [
 [[package]]
 name = "nostr"
 version = "0.20.0"
+source = "git+https://github.com/thesimplekid/nostr?rev=dd36907#dd36907fdca1a69df947a995491cf10448930796"
 dependencies = [
  "aes",
  "base64 0.21.0",
@@ -819,6 +820,7 @@ dependencies = [
 [[package]]
 name = "nostr-sdk"
 version = "0.20.1"
+source = "git+https://github.com/thesimplekid/nostr?rev=dd36907#dd36907fdca1a69df947a995491cf10448930796"
 dependencies = [
  "gloo-timers",
  "log",
@@ -832,6 +834,7 @@ dependencies = [
 [[package]]
 name = "nostr-sdk-net"
 version = "0.20.0"
+source = "git+https://github.com/thesimplekid/nostr?rev=dd36907#dd36907fdca1a69df947a995491cf10448930796"
 dependencies = [
  "futures-util",
  "thiserror",
