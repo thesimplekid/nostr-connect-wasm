@@ -18,7 +18,7 @@ enum State {
 }
 
 pub enum Msg {
-    ConnectPress,
+    CopyConnect,
     SubmitRelay,
 }
 
@@ -72,10 +72,7 @@ impl Component for Connect {
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
-            Msg::ConnectPress => {
-                let call = ctx.props().connected_cb.clone();
-                call.emit("".into());
-            }
+            Msg::CopyConnect => false,
             Msg::SubmitRelay => {
                 debug!("REF: {:?}", self.relay_ref);
                 let h = self.relay_ref.cast::<HtmlInputElement>();
@@ -107,10 +104,9 @@ impl Component for Connect {
                     self.connect_qr = Some(connect_svg);
                     self.connect_string = Some(connect_uri.to_string());
                 }
+                true
             }
         }
-
-        true
     }
 
     fn view(&self, ctx: &Context<Self>) -> Html {
@@ -136,14 +132,20 @@ impl Connect {
     fn connect_info(&self, ctx: &Context<Self>) -> Html {
         html! {
 
-        <main>
-            <h1>{ "Hello World!" }</h1>
-            <div>
-            { self.connect_qr.clone() }
-            <p>{ self.connect_string.clone() }</p>
-            </div>
-            <button onclick={ctx.link().callback(|_| Msg::ConnectPress)}> {"Connected"}</button>
-        </main>
+        <>
+        <div class="flex justify-center">
+           <div class="mt-10 max-w-sm p-6 bg-white border border-gray-200 rounded-lg shadow dark:bg-gray-800 dark:border-gray-700">
+              <div class="relative flex justify-center">
+                 { self.connect_qr.clone() }
+              </div>
+              <div class="relative">
+                 <input class="block w-full p-4 text-sm text-gray-900 border border-gray-300 rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" readonly=true value={ self.connect_string.clone() }/>
+                 <button type="button" class="text-white absolute right-2.5 bottom-2.5 bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-4 py-2 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800" onclick={ctx.link().callback(|_| Msg::CopyConnect)}>{"Copy"}</button>
+              </div>
+           </div>
+        </div>
+
+        </>
 
         }
     }

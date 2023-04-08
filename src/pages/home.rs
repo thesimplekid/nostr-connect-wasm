@@ -78,13 +78,15 @@ impl Home {
         html! {
             <>
             <form {onsubmit}>
-                <label for="name">{ "Content" } </label>
-                <textarea type="text" ref={self.note_text.clone()}/>
+
+                <label for="message" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">{ "Text note" }</label>
+                <textarea id="message" rows="4" class="block p-2.5 w-full text-sm text-gray-900 bg-gray-50 rounded-lg border border-gray-300 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" placeholder="Write your thoughts here..." ref={self.note_text.clone()}></textarea>
+
                 <br/>
-                  <input type="submit" value="Submit"/>
+                <button type="submit" value="submit" class="focus:outline-none text-white bg-purple-700 hover:bg-purple-800 focus:ring-4 focus:ring-purple-300 font-medium rounded-lg text-sm px-5 py-2.5 mb-2 dark:bg-purple-600 dark:hover:bg-purple-700 dark:focus:ring-purple-900">{ "Publish" }</button>
             </form>
 
-            <button onclick={delegate_cb}>{ "Delegate" } </button>
+            <button class="px-8 py-3 font-semibold rounded dark:bg-gray-100 dark:text-gray-800" onclick={delegate_cb}>{ "Delegate" } </button>
             </>
 
         }
