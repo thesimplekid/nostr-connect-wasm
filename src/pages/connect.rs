@@ -1,16 +1,15 @@
 use std::str::FromStr;
 
 use log::debug;
-use nostr_sdk::prelude::NostrConnectURI;
+use nostr_sdk::nips::nip46::NostrConnectURI;
 use nostr_sdk::secp256k1::XOnlyPublicKey;
+use nostr_sdk::url::Url;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
 
 use qrcode::render::svg;
 use qrcode::QrCode;
 use yew::virtual_dom::VNode;
-
-use crate::app::Props;
 
 #[derive(Debug)]
 enum State {
@@ -21,6 +20,18 @@ enum State {
 pub enum Msg {
     ConnectPress,
     SubmitRelay,
+}
+
+#[derive(Properties, PartialEq, Default, Clone)]
+pub struct Props {
+    #[prop_or_default]
+    pub pubkey: AttrValue,
+    #[prop_or_default]
+    pub relay: Vec<Url>,
+    #[prop_or_default]
+    pub name: AttrValue,
+    pub connected_cb: Callback<AttrValue>,
+    pub set_relay_cb: Callback<AttrValue>,
 }
 
 #[derive(Debug)]

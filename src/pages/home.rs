@@ -2,7 +2,7 @@ use web_sys::{HtmlInputElement, Window};
 use yew::prelude::*;
 
 enum State {
-    NotConnected,
+    // NotConnected,
     Connected,
 }
 pub enum Msg {
@@ -17,6 +17,7 @@ pub struct Home {
 #[derive(Properties, PartialEq, Default, Clone)]
 pub struct Props {
     pub note_cb: Callback<AttrValue>,
+    pub delegate_cb: Callback<AttrValue>,
 }
 
 impl Component for Home {
@@ -46,12 +47,13 @@ impl Component for Home {
 
     fn view(&self, ctx: &Context<Self>) -> Html {
         match self.state {
-            State::NotConnected => self.redirect_connect(&ctx),
-            State::Connected => self.connected(&ctx),
+            // State::NotConnected => self.redirect_connect(&ctx),
+            State::Connected => self.connected(ctx),
         }
     }
 }
 impl Home {
+    /*
     fn redirect_connect(&self, ctx: &Context<Self>) -> Html {
         html! {
             <>
@@ -62,6 +64,7 @@ impl Home {
 
         }
     }
+    */
 
     fn connected(&self, ctx: &Context<Self>) -> Html {
         let h = self.note_text.cast::<HtmlInputElement>();
@@ -77,13 +80,19 @@ impl Home {
             Msg::SubmitNote("".to_string())
         });
 
+        let delegate_cb = ctx.props().delegate_cb.reform(move |_| "".into());
+
         html! {
+            <>
             <form {onsubmit}>
                 <label for="name">{ "Content" } </label>
                 <textarea type="text" ref={self.note_text.clone()}/>
                 <br/>
                   <input type="submit" value="Submit"/>
             </form>
+
+            <button onclick={delegate_cb}>{ "Delegate" } </button>
+            </>
 
         }
     }
