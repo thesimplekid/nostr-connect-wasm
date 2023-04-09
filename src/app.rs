@@ -4,6 +4,7 @@ use std::str::FromStr;
 use dashmap::DashSet;
 use log::debug;
 use nostr_sdk::prelude::ToBech32;
+use nostr_sdk::secp256k1::XOnlyPublicKey;
 use nostr_sdk::Url;
 use yew::prelude::*;
 use yew::props;
@@ -25,16 +26,24 @@ pub enum View {
 
 pub enum Msg {
     // ToggleNavbar,
+    /// Publish a nostr note
     SubmitNote(AttrValue),
-    NoteView(AttrValue),
-    SetRelay(AttrValue),
+    /// Completed note broadcast
     BroadcastedEvent(AttrValue),
-    Delegate,
-    ReceivedPubkey,
-    DelegationSet,
+    /// Add relay to client
+    AddRelay(AttrValue),
+    /// Set remote pubkey
+    SetRemotePubkey(Option<XOnlyPublicKey>),
+    /// Settings view
     Settings,
-    DelegationInfo(DelegationInfo),
+    // Home view
     Home,
+    /// Send delegation request
+    Delegate,
+    /// Delegation token received
+    DelegationSet,
+    /// Got delgation info
+    DelegationInfo(DelegationInfo),
 }
 
 pub struct App {
@@ -59,9 +68,9 @@ impl Component for App {
 
         client.add_relay(connect_relay.clone()).ok();
 
-        let signer_pubkey_callback = ctx.link().callback(|_| Msg::ReceivedPubkey);
+        let signer_pubkey_callback = ctx.link().callback(Msg::SetRemotePubkey);
 
-        client.get_signer_pub_key(signer_pubkey_callback).unwrap();
+        client.req_signer_pub_key(signer_pubkey_callback).unwrap();
 
         Self {
             // navbar_active: false,
@@ -82,15 +91,11 @@ impl Component for App {
                 true
             }
             */
-            Msg::SetRelay(relay) => {
+            Msg::AddRelay(relay) => {
                 debug!("Setting relay: {relay}");
                 let relay = Url::from_str(&relay).unwrap();
                 self.client.add_relay(relay).ok();
                 false
-            }
-            Msg::NoteView(_) => {
-                self.view = View::Home;
-                true
             }
             Msg::SubmitNote(note) => {
                 debug!("Got note: {note}");
@@ -123,7 +128,8 @@ impl Component for App {
                 self.client.set_delegation_info(delegation_info);
                 false
             }
-            Msg::ReceivedPubkey => {
+            Msg::SetRemotePubkey(pubkey) => {
+                self.client.set_remote_pubkey(pubkey);
                 self.view = View::Home;
                 true
             }
@@ -132,7 +138,19 @@ impl Component for App {
                 true
             }
             Msg::Home => {
-                self.view = View::Home;
+                let view;
+
+                // If the app is not connected to a remote signer
+                // AND does not have a delegation tag
+                // Redirect to connect page
+                if self.client.get_remote_pubkey().is_none()
+                    && self.client.get_delegation_info().is_none()
+                {
+                    view = View::Connect;
+                } else {
+                    view = View::Home;
+                }
+                self.view = view;
                 true
             }
         }
@@ -174,8 +192,8 @@ impl Component for App {
                 }
             },
                 View::Connect => {
-                    let connected_cb = ctx.link().callback(Msg::NoteView);
-                    let set_relay_cb = ctx.link().callback(Msg::SetRelay);
+                    let connected_cb = ctx.link().callback(|_| Msg::Home);
+                    let set_relay_cb = ctx.link().callback(Msg::AddRelay);
                     let props = props! {
                         ConnectProps {
                             pubkey: self.client.get_app_pubkey().to_string(),

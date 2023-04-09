@@ -20,6 +20,7 @@ pub struct DelegationInfo {
 }
 
 impl DelegationInfo {
+    /// Unix time the delegation expires
     pub fn created_before(&self) -> Option<u64> {
         self.conditions
             .inner()
@@ -30,6 +31,7 @@ impl DelegationInfo {
             })
     }
 
+    /// Unix time the delegation is valid from
     pub fn created_after(&self) -> Option<u64> {
         self.conditions
             .inner()
@@ -40,7 +42,8 @@ impl DelegationInfo {
             })
     }
 
-    pub fn kinds(&self) -> Vec<u64> {
+    /// Event kinds delegation is valid for
+    pub fn _kinds(&self) -> Vec<u64> {
         self.conditions
             .inner()
             .iter()
@@ -52,11 +55,13 @@ impl DelegationInfo {
     }
 }
 
+/// Nostr service
 #[derive(Clone)]
 pub struct NostrService {
     keys: Keys,
     client: Arc<Mutex<Client>>,
     relays: DashSet<Url>,
+    remote_signer: Option<XOnlyPublicKey>,
     delegation_info: Option<DelegationInfo>,
 }
 
@@ -75,9 +80,11 @@ impl NostrService {
             relays,
             keys: keys.clone(),
             delegation_info: None,
+            remote_signer: None,
         })
     }
 
+    /// Add new relay to client
     pub fn add_relay(&self, relay: Url) -> Result<()> {
         let client = self.client.clone();
         spawn_local(async move {
@@ -88,6 +95,7 @@ impl NostrService {
         Ok(())
     }
 
+    /// Get pubkey of app
     pub fn get_app_pubkey(&self) -> XOnlyPublicKey {
         self.keys.public_key()
     }
@@ -155,15 +163,18 @@ impl NostrService {
         Ok(())
     }
 
+    /// Set the app delegation info
     pub fn set_delegation_info(&mut self, delegation_info: DelegationInfo) {
         self.delegation_info = Some(delegation_info);
     }
 
+    /// Get the app delegation info
     pub fn get_delegation_info(&self) -> Option<DelegationInfo> {
         self.delegation_info.to_owned()
     }
 
-    pub fn get_signer_pub_key(&self, callback: Callback<AttrValue>) -> Result<()> {
+    /// Wait for pubkey of signer
+    pub fn req_signer_pub_key(&self, callback: Callback<Option<XOnlyPublicKey>>) -> Result<()> {
         let client = self.client.clone();
         spawn_local(async move {
             debug!("Waiting for pubkey");
@@ -173,7 +184,8 @@ impl NostrService {
 
             match client.req_signer_public_key(None).await {
                 Ok(_) => {
-                    callback.emit("".into());
+                    let remote = client.remote_signer().unwrap().signer_public_key().await;
+                    callback.emit(remote);
                 }
                 Err(err) => {
                     warn!("Could not set signer key {}", err);
@@ -185,6 +197,17 @@ impl NostrService {
         Ok(())
     }
 
+    /// Set remote signer pubkey
+    pub fn set_remote_pubkey(&mut self, pubkey: Option<XOnlyPublicKey>) {
+        self.remote_signer = pubkey;
+    }
+
+    /// Get remote signer pubkey
+    pub fn get_remote_pubkey(&self) -> Option<XOnlyPublicKey> {
+        self.remote_signer
+    }
+
+    /// Create delegation `Tag` from service delegation info
     fn delegation_tag(&self) -> Option<Tag> {
         if let Some(delegation) = &self.delegation_info {
             Some(Tag::Delegation {
@@ -197,6 +220,7 @@ impl NostrService {
         }
     }
 
+    /// Publish a text note
     pub fn publish_text_note(&self, content: &str, callback: Callback<AttrValue>) -> Result<()> {
         let client = self.client.clone();
         let content = content.to_owned();
