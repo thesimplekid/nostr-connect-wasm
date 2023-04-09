@@ -10,7 +10,6 @@ use yew::virtual_dom::VNode;
 
 #[derive(Debug)]
 enum State {
-    // SetRelay,
     Connect,
 }
 
@@ -79,7 +78,6 @@ impl Component for Connect {
 impl Connect {
     fn connect_info(&self, ctx: &Context<Self>) -> Html {
         html! {
-
         <>
         <div class="flex justify-center">
            <div class="mt-10 max-w-sm p-6 bg-white border border-gray-200 rounded-lg shadow dark:bg-gray-800 dark:border-gray-700">
@@ -92,9 +90,7 @@ impl Connect {
               </div>
            </div>
         </div>
-
         </>
-
         }
     }
 }

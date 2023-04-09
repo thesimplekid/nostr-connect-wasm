@@ -44,6 +44,8 @@ pub enum Msg {
     DelegationSet,
     /// Got delgation info
     DelegationInfo(DelegationInfo),
+    /// Log Out
+    LogOut,
 }
 
 pub struct App {
@@ -162,6 +164,12 @@ impl Component for App {
                 self.view = view;
                 true
             }
+            Msg::LogOut => {
+                let keys = handle_keys(None, true).unwrap();
+                self.client = NostrService::new(&keys, self.client.get_connect_relay()).unwrap();
+                self.view = View::Connect;
+                true
+            }
         }
     }
 
@@ -230,6 +238,7 @@ impl Component for App {
 
                     let update_connect_relay_cb = ctx.link().callback(Msg::UpdateConnectRelay);
                     let add_relay_cb = ctx.link().callback(Msg::AddRelay);
+                    let logout_cb = ctx.link().callback(|_| Msg::LogOut);
                     let props = props! {
                         SettingsProps {
                             app_pubkey: self.client.get_app_pubkey().to_bech32().unwrap(),
@@ -237,7 +246,8 @@ impl Component for App {
                             connect_relay: self.client.get_connect_relay().to_string(),
                             relays: self.client.get_relays().clone(),
                             update_connect_relay_cb,
-                            add_relay_cb
+                            add_relay_cb,
+                            logout_cb
                         }
 
                     };
