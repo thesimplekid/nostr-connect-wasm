@@ -60,11 +60,13 @@ pub struct Props {
     pub update_connect_relay_cb: Callback<AttrValue>,
     pub add_relay_cb: Callback<AttrValue>,
     pub logout_cb: Callback<MouseEvent>,
+    pub remove_relay_cb: Callback<Url>,
 }
 
 pub enum Msg {
     UpdateConnectRelay,
     AddRelay,
+    DeleteRelay(Url),
 }
 
 pub struct Settings {
@@ -98,6 +100,9 @@ impl Component for Settings {
                     debug!("{}", relay.value());
                     ctx.props().add_relay_cb.emit(relay.value().into());
                 }
+            }
+            Msg::DeleteRelay(relay) => {
+                ctx.props().remove_relay_cb.emit(relay);
             }
         }
 
@@ -139,7 +144,19 @@ impl Component for Settings {
             <ul class="max-w-md space-y-1 text-gray-500 list-inside dark:text-gray-400">
                 {
                     ctx.props().relays.clone().into_iter().map(|relay| {
-                        html!{ <li>{format!("{}", relay)}</li> }
+                       let r = relay.clone();
+                        let c = ctx.link().callback(move |_e| Msg::DeleteRelay(r.clone()));
+                        html!{
+                        <li>
+                            <div> {format!("{} ", relay)}
+                                <button type="button" class="text-purple-700 border border-purple-700 hover:bg-purple-700 hover:text-white focus:ring-4 focus:outline-none focus:ring-purple-300 font-medium rounded-lg text-sm p-1 text-center inline-flex items-center mr-3 dark:border-purple-500 dark:text-purple-500 dark:hover:text-white dark:focus:ring-purple-800 dark:hover:bg-purple-500" onclick={c}>
+                                    <svg aria-hidden="true" fill="none" class="w-5 h-5" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round"></path>
+                                    </svg>
+                                    <span class="sr-only">{"Icon description"}</span>
+                                </button>
+                            </div>
+                        </li> }
                     }).collect::<Html>()
                 }
             </ul>

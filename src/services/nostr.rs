@@ -90,13 +90,22 @@ impl NostrService {
     pub fn add_relay(&self, relay: Url) -> Result<()> {
         let client = self.client.clone();
         self.relays.insert(relay.clone());
-        debug!("R: {:?}", self.relays);
         spawn_local(async move {
             let client = client.lock().await;
             client.add_relay(relay).await.ok();
             client.connect().await;
         });
         Ok(())
+    }
+
+    /// Remove relay
+    pub fn remove_relay(&mut self, relay: Url) {
+        let client = self.client.clone();
+        self.relays.remove(&relay);
+        spawn_local(async move {
+            let client = client.lock().await;
+            client.remove_relay(relay).await.ok();
+        });
     }
 
     /// Set connect relay

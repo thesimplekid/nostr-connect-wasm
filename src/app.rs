@@ -32,6 +32,8 @@ pub enum Msg {
     UpdateConnectRelay(AttrValue),
     /// Add relay to client
     AddRelay(AttrValue),
+    /// Remove Relay
+    RemoveRelay(Url),
     /// Set remote pubkey
     SetRemotePubkey(Option<XOnlyPublicKey>),
     /// Settings view
@@ -91,10 +93,13 @@ impl Component for App {
             }
             */
             Msg::AddRelay(relay) => {
-                debug!("Setting relay: {relay}");
                 if let Ok(relay) = Url::from_str(&relay) {
                     self.client.add_relay(relay).ok();
                 }
+                true
+            }
+            Msg::RemoveRelay(relay) => {
+                self.client.remove_relay(relay);
                 true
             }
             Msg::UpdateConnectRelay(relay) => {
@@ -120,7 +125,6 @@ impl Component for App {
                 true
             }
             Msg::Delegate => {
-                debug!("Delegate");
                 let delegate_callback = ctx.link().callback(|_| Msg::DelegationSet);
                 let delegation_info_callback = ctx.link().callback(Msg::DelegationInfo);
 
@@ -239,6 +243,7 @@ impl Component for App {
                     let update_connect_relay_cb = ctx.link().callback(Msg::UpdateConnectRelay);
                     let add_relay_cb = ctx.link().callback(Msg::AddRelay);
                     let logout_cb = ctx.link().callback(|_| Msg::LogOut);
+                    let remove_relay_cb = ctx.link().callback(Msg::RemoveRelay);
                     let props = props! {
                         SettingsProps {
                             app_pubkey: self.client.get_app_pubkey().to_bech32().unwrap(),
@@ -247,7 +252,9 @@ impl Component for App {
                             relays: self.client.get_relays().clone(),
                             update_connect_relay_cb,
                             add_relay_cb,
-                            logout_cb
+                            logout_cb,
+                            remove_relay_cb
+
                         }
 
                     };
