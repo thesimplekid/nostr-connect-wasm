@@ -1,9 +1,9 @@
 use std::collections::HashSet;
 
+use log::debug;
 use nostr_sdk::{nips::nip19::ToBech32, secp256k1::XOnlyPublicKey, url::Url};
+use web_sys::HtmlInputElement;
 use yew::prelude::*;
-
-pub struct Settings;
 
 #[derive(PartialEq, Default, Clone)]
 pub struct DelegationInfoProp {
@@ -57,17 +57,55 @@ pub struct Props {
     pub delegation_info: Option<DelegationInfoProp>,
     pub connect_relay: AttrValue,
     pub relays: HashSet<Url>,
+    pub update_connect_relay_cb: Callback<AttrValue>,
+    pub add_relay_cb: Callback<AttrValue>,
+}
+
+pub enum Msg {
+    UpdateConnectRelay,
+    AddRelay,
+}
+
+pub struct Settings {
+    connect_relay: NodeRef,
+    new_relay: NodeRef,
 }
 
 impl Component for Settings {
-    type Message = ();
+    type Message = Msg;
     type Properties = Props;
 
     fn create(_ctx: &Context<Self>) -> Self {
-        Self
+        Self {
+            connect_relay: NodeRef::default(),
+            new_relay: NodeRef::default(),
+        }
+    }
+
+    fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
+        match msg {
+            Msg::UpdateConnectRelay => {
+                if let Some(relay) = self.connect_relay.clone().cast::<HtmlInputElement>() {
+                    debug!("{}", relay.value());
+                    ctx.props()
+                        .update_connect_relay_cb
+                        .emit(relay.value().into());
+                }
+            }
+            Msg::AddRelay => {
+                if let Some(relay) = self.new_relay.clone().cast::<HtmlInputElement>() {
+                    debug!("{}", relay.value());
+                    ctx.props().add_relay_cb.emit(relay.value().into());
+                }
+            }
+        }
+
+        true
     }
 
     fn view(&self, ctx: &Context<Self>) -> Html {
+        let update_connect_relay = ctx.link().callback(|_| Msg::UpdateConnectRelay);
+        let add_relay = ctx.link().callback(|_| Msg::AddRelay);
         html! {
             <>
             <h2 class="text-4xl font-extrabold dark:text-white">{ "Settings" }</h2>
@@ -91,16 +129,16 @@ impl Component for Settings {
             // Text box of connect relay that is editable
             <div class="mb-6">
                 <label for="default-input" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">{"Connect Relay"}</label>
-                <input type="text" id="default-input" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" value={ctx.props().connect_relay.clone()}/>
+                <input type="text" id="default-input" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" value={ctx.props().connect_relay.clone()} ref={self.connect_relay.clone()}/>
+            <button type="button" class="focus:outline-none text-white bg-purple-700 hover:bg-purple-800 focus:ring-4 focus:ring-purple-300 font-medium rounded-lg text-sm px-5 py-2.5 mb-2 dark:bg-purple-600 dark:hover:bg-purple-700 dark:focus:ring-purple-900" onclick={update_connect_relay}>{ "update connect relay" } </button>
+
             </div>
-
-
             // List of publish relays with delete buttons
             <h2 class="mb-2 text-lg font-semibold text-gray-900 dark:text-white"> { "Publish relays" }</h2>
             <ul class="max-w-md space-y-1 text-gray-500 list-inside dark:text-gray-400">
                 {
                     ctx.props().relays.clone().into_iter().map(|relay| {
-                        html!{{ format!("{}", relay) }}
+                        html!{ <li>{format!("{}", relay)}</li> }
                     }).collect::<Html>()
                 }
             </ul>
@@ -109,7 +147,8 @@ impl Component for Settings {
             <div class="mb-6">
                 <label for="default-input" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">{ "Add Relay" }</label>
                 // TODO: add call back
-                <input type="text" id="default-input" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"/>
+                <input type="text" id="default-input" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" ref={self.new_relay.clone()}/>
+            <button type="button" class="focus:outline-none text-white bg-purple-700 hover:bg-purple-800 focus:ring-4 focus:ring-purple-300 font-medium rounded-lg text-sm px-5 py-2.5 mb-2 dark:bg-purple-600 dark:hover:bg-purple-700 dark:focus:ring-purple-900" onclick={add_relay}>{ "Add Relay" } </button>
             </div>
 
             // Log out button

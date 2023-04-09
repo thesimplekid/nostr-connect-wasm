@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::HashSet, sync::Arc};
 
 use anyhow::Result;
 use dashmap::DashSet;
@@ -60,6 +60,7 @@ impl DelegationInfo {
 pub struct NostrService {
     keys: Keys,
     client: Arc<Mutex<Client>>,
+    connect_relay: Url,
     relays: DashSet<Url>,
     remote_signer: Option<XOnlyPublicKey>,
     delegation_info: Option<DelegationInfo>,
@@ -70,13 +71,14 @@ impl NostrService {
         let relays = DashSet::new();
         relays.insert(relay.clone());
 
-        let remote_signer = RemoteSigner::new(relay, None);
+        let remote_signer = RemoteSigner::new(relay.clone(), None);
         let client = Client::with_remote_signer(keys, remote_signer);
         let client = Arc::new(Mutex::new(client));
 
         // Spawn an thread that just listens for event
         Ok(Self {
             client,
+            connect_relay: relay,
             relays,
             keys: keys.clone(),
             delegation_info: None,
@@ -87,6 +89,8 @@ impl NostrService {
     /// Add new relay to client
     pub fn add_relay(&self, relay: Url) -> Result<()> {
         let client = self.client.clone();
+        self.relays.insert(relay.clone());
+        debug!("R: {:?}", self.relays);
         spawn_local(async move {
             let client = client.lock().await;
             client.add_relay(relay).await.ok();
@@ -95,9 +99,39 @@ impl NostrService {
         Ok(())
     }
 
+    /// Set connect relay
+    pub fn set_connect_relay(&mut self, relay: Url) {
+        debug!("Setting connect relay");
+        self.connect_relay = relay;
+    }
+
+    /// Get connect relay
+    pub fn get_connect_relay(&self) -> Url {
+        self.connect_relay.to_owned()
+    }
+
+    /// Get relays
+    pub fn get_relays(&self) -> HashSet<Url> {
+        HashSet::from_iter(self.relays.iter().map(|r| r.to_owned()))
+    }
+
     /// Get pubkey of app
     pub fn get_app_pubkey(&self) -> XOnlyPublicKey {
         self.keys.public_key()
+    }
+
+    pub fn new_client_with_remote_signer(&mut self) {
+        let client = self.client.clone();
+        let connect_relay = self.connect_relay.clone();
+
+        spawn_local(async move {
+            let mut client = client.lock().await;
+            let keys = client.keys();
+            let remote_signer = RemoteSigner::new(connect_relay, None);
+            let new_client = Client::with_remote_signer(&keys, remote_signer);
+            client.connect().await;
+            *client = new_client;
+        });
     }
 
     /// Create a new nostr client without a remote signer

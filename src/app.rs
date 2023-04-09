@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use std::str::FromStr;
 
 use dashmap::DashSet;
@@ -25,11 +24,12 @@ pub enum View {
 }
 
 pub enum Msg {
-    // ToggleNavbar,
     /// Publish a nostr note
     SubmitNote(AttrValue),
     /// Completed note broadcast
     BroadcastedEvent(AttrValue),
+    /// Update Connect relay
+    UpdateConnectRelay(AttrValue),
     /// Add relay to client
     AddRelay(AttrValue),
     /// Set remote pubkey
@@ -51,8 +51,6 @@ pub struct App {
     //navbar_active: bool,
     client: NostrService,
     broadcasted_event: Option<AttrValue>,
-    connect_relay: Url,
-    publish_relays: HashSet<Url>,
     name: AttrValue,
 }
 impl Component for App {
@@ -61,7 +59,7 @@ impl Component for App {
 
     fn create(ctx: &Context<Self>) -> Self {
         let connect_relay = Url::from_str("ws://localhost:8081").unwrap();
-        let relays = HashSet::from_iter(vec![connect_relay.clone()]);
+        // let relays: HashSet = HashSet::from_iter(vec![connect_relay.clone()]);
         let keys = handle_keys(None, true).unwrap();
 
         let client = NostrService::new(&keys, connect_relay.clone()).unwrap();
@@ -77,8 +75,7 @@ impl Component for App {
             client,
             view: View::Connect,
             broadcasted_event: None,
-            connect_relay,
-            publish_relays: relays,
+            // publish_relays: relays,
             name: "dartstr".into(),
         }
     }
@@ -93,9 +90,21 @@ impl Component for App {
             */
             Msg::AddRelay(relay) => {
                 debug!("Setting relay: {relay}");
-                let relay = Url::from_str(&relay).unwrap();
-                self.client.add_relay(relay).ok();
-                false
+                if let Ok(relay) = Url::from_str(&relay) {
+                    self.client.add_relay(relay).ok();
+                }
+                true
+            }
+            Msg::UpdateConnectRelay(relay) => {
+                if let Ok(relay) = Url::from_str(&relay) {
+                    self.client.set_connect_relay(relay);
+                    if self.client.get_delegation_info().is_none() {
+                        self.client.new_client_with_remote_signer();
+                        let signer_pubkey_callback = ctx.link().callback(Msg::SetRemotePubkey);
+                        self.client.req_signer_pub_key(signer_pubkey_callback).ok();
+                    }
+                }
+                true
             }
             Msg::SubmitNote(note) => {
                 debug!("Got note: {note}");
@@ -203,7 +212,7 @@ impl Component for App {
                     let props = props! {
                         ConnectProps {
                             pubkey: self.client.get_app_pubkey().to_string(),
-                            connect_relay: self.connect_relay.to_string(),
+                            connect_relay: self.client.get_connect_relay().to_string(),
                             name: self.name.clone(),
                             connected_cb,
                             set_relay_cb
@@ -218,12 +227,17 @@ impl Component for App {
                         Some(info) => Some(DelegationInfoProp::new(info.delegator_pubkey, info.created_after(), info.created_before(), info.kinds())),
                         None => None
                     };
+
+                    let update_connect_relay_cb = ctx.link().callback(Msg::UpdateConnectRelay);
+                    let add_relay_cb = ctx.link().callback(Msg::AddRelay);
                     let props = props! {
                         SettingsProps {
                             app_pubkey: self.client.get_app_pubkey().to_bech32().unwrap(),
                             delegation_info: delegation_info,
-                            connect_relay: self.connect_relay.to_string(),
-                            relays: self.publish_relays.clone()
+                            connect_relay: self.client.get_connect_relay().to_string(),
+                            relays: self.client.get_relays().clone(),
+                            update_connect_relay_cb,
+                            add_relay_cb
                         }
 
                     };
