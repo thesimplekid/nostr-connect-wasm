@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use nostr_sdk::{prelude::ToBech32, secp256k1::XOnlyPublicKey, url::Url};
+use nostr_sdk::{nips::nip19::ToBech32, secp256k1::XOnlyPublicKey, url::Url};
 use yew::prelude::*;
 
 pub struct Settings;

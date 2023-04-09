@@ -1,22 +1,21 @@
-use dashmap::DashSet;
-use nostr_sdk::prelude::ToBech32;
-use nostr_sdk::Url;
 use std::collections::HashSet;
 use std::str::FromStr;
 
+use dashmap::DashSet;
 use log::debug;
+use nostr_sdk::prelude::ToBech32;
+use nostr_sdk::Url;
 use yew::prelude::*;
 use yew::props;
 
-use crate::components::navbar::Navbar;
-use crate::components::navbar::Props as NavbarProps;
-use crate::services::nostr::DelegationInfo;
-use crate::services::nostr::NostrService;
+use crate::components::navbar::{Navbar, Props as NavbarProps};
+use crate::services::nostr::{DelegationInfo, NostrService};
 use crate::utils::handle_keys;
-use crate::views::connect::Props as ConnectProps;
-use crate::views::settings::DelegationInfoProp;
-use crate::views::settings::Props as SettingsProps;
-use crate::views::{connect::Connect, home::Home, settings::Settings};
+use crate::views::{
+    connect::{Connect, Props as ConnectProps},
+    home::Home,
+    settings::{DelegationInfoProp, Props as SettingsProps, Settings},
+};
 
 pub enum View {
     Home,

@@ -1,21 +1,16 @@
-use nostr_sdk::secp256k1::schnorr::Signature;
 use std::sync::Arc;
-use tokio::sync::Mutex;
-
-use nostr_sdk::Url;
-use nostr_sdk::{
-    prelude::*,
-    prelude::{Conditions, RemoteSigner},
-    secp256k1::XOnlyPublicKey,
-    Client, Keys,
-};
-use wasm_bindgen_futures::spawn_local;
-use yew::{AttrValue, Callback};
 
 use anyhow::Result;
-use log::{debug, error, warn};
-
 use dashmap::DashSet;
+use log::{debug, error, warn};
+use nostr_sdk::{
+    prelude::*,
+    secp256k1::{schnorr::Signature, XOnlyPublicKey},
+    Client, Keys, Url,
+};
+use tokio::sync::Mutex;
+use wasm_bindgen_futures::spawn_local;
+use yew::{AttrValue, Callback};
 
 #[derive(Clone)]
 pub struct DelegationInfo {
