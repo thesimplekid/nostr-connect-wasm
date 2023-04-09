@@ -1,28 +1,68 @@
+use nostr_sdk::secp256k1::schnorr::Signature;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
+use nostr_sdk::Url;
 use nostr_sdk::{
     prelude::*,
     prelude::{Conditions, RemoteSigner},
     secp256k1::XOnlyPublicKey,
     Client, Keys,
 };
-use nostr_sdk::{EventId, UnsignedEvent, Url};
 use wasm_bindgen_futures::spawn_local;
 use yew::{AttrValue, Callback};
 
 use anyhow::Result;
 use log::{debug, error, warn};
 
-use dashmap::{DashMap, DashSet};
+use dashmap::DashSet;
+
+#[derive(Clone)]
+pub struct DelegationInfo {
+    pub delegator_pubkey: XOnlyPublicKey,
+    pub conditions: Conditions,
+    pub signature: Signature,
+}
+
+impl DelegationInfo {
+    pub fn created_before(&self) -> Option<u64> {
+        self.conditions
+            .inner()
+            .iter()
+            .find_map(|condition| match condition {
+                Condition::CreatedBefore(time) => Some(*time),
+                _ => None,
+            })
+    }
+
+    pub fn created_after(&self) -> Option<u64> {
+        self.conditions
+            .inner()
+            .iter()
+            .find_map(|condition| match condition {
+                Condition::CreatedAfter(time) => Some(*time),
+                _ => None,
+            })
+    }
+
+    pub fn kinds(&self) -> Vec<u64> {
+        self.conditions
+            .inner()
+            .iter()
+            .filter_map(|condition| match condition {
+                Condition::Kind(kind) => Some(*kind),
+                _ => None,
+            })
+            .collect()
+    }
+}
 
 #[derive(Clone)]
 pub struct NostrService {
-    pub client: Arc<Mutex<Client>>,
-    pub signer_pubkey: Arc<Mutex<Option<XOnlyPublicKey>>>,
-    pub relays: DashSet<Url>,
-    pub unsigned_event: DashMap<EventId, UnsignedEvent>,
-    pub delegation_token: Arc<Mutex<Option<Tag>>>,
+    keys: Keys,
+    client: Arc<Mutex<Client>>,
+    relays: DashSet<Url>,
+    delegation_info: Option<DelegationInfo>,
 }
 
 impl NostrService {
@@ -37,10 +77,9 @@ impl NostrService {
         // Spawn an thread that just listens for event
         Ok(Self {
             client,
-            signer_pubkey: Arc::new(Mutex::new(None)),
-            unsigned_event: DashMap::new(),
-            delegation_token: Arc::new(Mutex::new(None)),
             relays,
+            keys: keys.clone(),
+            delegation_info: None,
         })
     }
 
@@ -52,6 +91,10 @@ impl NostrService {
             client.connect().await;
         });
         Ok(())
+    }
+
+    pub fn get_app_pubkey(&self) -> XOnlyPublicKey {
+        self.keys.public_key()
     }
 
     /// Create a new nostr client without a remote signer
@@ -75,9 +118,12 @@ impl NostrService {
     }
 
     /// Get delegation from remote signer
-    pub fn get_delegate(&mut self, callback: Callback<AttrValue>) -> Result<()> {
+    pub fn get_delegate(
+        &mut self,
+        callback: Callback<AttrValue>,
+        delegation_info_cb: Callback<DelegationInfo>,
+    ) -> Result<()> {
         let client = self.client.clone();
-        let delegation_token = self.delegation_token.clone();
 
         spawn_local(async move {
             let client = client.lock().await;
@@ -96,17 +142,14 @@ impl NostrService {
             match client.send_req_to_signer(req, None).await {
                 Ok(res) => {
                     if let Response::Delegate(delegation_result) = res {
-                        let delegation_tag = Tag::Delegation {
-                            delegator_pk: delegation_result.from,
+                        let delegation_info = DelegationInfo {
+                            delegator_pubkey: delegation_result.from,
                             conditions: delegation_result.cond,
-                            sig: delegation_result.sig,
+                            signature: delegation_result.sig,
                         };
 
-                        debug!("{:?}", delegation_tag);
-                        let mut delegation = delegation_token.lock().await;
-                        *delegation = Some(delegation_tag);
+                        delegation_info_cb.emit(delegation_info);
 
-                        // TODO: Since there is now a delegation there is no need for remote signer
                         callback.emit("".into());
                     }
                 }
@@ -115,6 +158,14 @@ impl NostrService {
         });
 
         Ok(())
+    }
+
+    pub fn set_delegation_info(&mut self, delegation_info: DelegationInfo) {
+        self.delegation_info = Some(delegation_info);
+    }
+
+    pub fn get_delegation_info(&self) -> Option<DelegationInfo> {
+        self.delegation_info.to_owned()
     }
 
     pub fn get_signer_pub_key(&self, callback: Callback<AttrValue>) -> Result<()> {
@@ -139,14 +190,25 @@ impl NostrService {
         Ok(())
     }
 
+    fn delegation_tag(&self) -> Option<Tag> {
+        if let Some(delegation) = &self.delegation_info {
+            Some(Tag::Delegation {
+                delegator_pk: delegation.delegator_pubkey,
+                conditions: delegation.conditions.clone(),
+                sig: delegation.signature,
+            })
+        } else {
+            None
+        }
+    }
+
     pub fn publish_text_note(&self, content: &str, callback: Callback<AttrValue>) -> Result<()> {
         let client = self.client.clone();
         let content = content.to_owned();
-        let delegation_tag = self.delegation_token.clone();
+        let delegation_tag = self.delegation_tag();
         spawn_local(async move {
-            let delegation_tag = delegation_tag.lock().await;
-            let tag = match &*delegation_tag {
-                Some(tag) => vec![tag.to_owned()],
+            let tag = match delegation_tag {
+                Some(tag) => vec![tag],
                 None => vec![],
             };
 
@@ -163,6 +225,8 @@ impl NostrService {
     }
 
     /*
+    // This shouldn't be needed as should be able to use nostr-sdk subscribe
+    // Just gonna let it hang around as reference for now
     /// Wait for event
     pub fn wait_for_event(&self, callback: Callback<Message>) {
         let client = self.client.clone();

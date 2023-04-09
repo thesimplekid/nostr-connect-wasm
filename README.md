@@ -17,3 +17,6 @@ https://tailwindcss.com/docs/installation
 ```
 trunk serve --open
 ```
+
+
+For now the best way to test with delegation is with nostr-tools https://github.com/thesimplekid/nostr-tool/tree/nostr-connect. 

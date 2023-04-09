@@ -1,8 +1,9 @@
 //mod app;
 mod app;
-mod pages;
+mod components;
 mod services;
 mod utils;
+mod views;
 
 use app::App;
 

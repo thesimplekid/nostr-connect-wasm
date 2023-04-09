@@ -452,7 +452,6 @@ version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a8d5564e570a38b43d78bdc063374a0c3098c4f0d64005b12f9bbe87e869b6d7"
 dependencies = [
- "futures-channel",
  "gloo-events",
  "js-sys",
  "wasm-bindgen",
@@ -797,7 +796,7 @@ dependencies = [
 [[package]]
 name = "nostr"
 version = "0.20.0"
-source = "git+https://github.com/thesimplekid/nostr?rev=dd36907#dd36907fdca1a69df947a995491cf10448930796"
+source = "git+https://github.com/rust-nostr/nostr#e5b39760235e099275503f5692f6d78edd8fbe2e"
 dependencies = [
  "aes",
  "base64 0.21.0",
@@ -818,38 +817,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "nostr-sdk"
-version = "0.20.1"
-source = "git+https://github.com/thesimplekid/nostr?rev=dd36907#dd36907fdca1a69df947a995491cf10448930796"
-dependencies = [
- "gloo-timers",
- "log",
- "nostr",
- "nostr-sdk-net",
- "thiserror",
- "tokio",
- "wasm-bindgen-futures",
-]
-
-[[package]]
-name = "nostr-sdk-net"
-version = "0.20.0"
-source = "git+https://github.com/thesimplekid/nostr?rev=dd36907#dd36907fdca1a69df947a995491cf10448930796"
-dependencies = [
- "futures-util",
- "thiserror",
- "tokio",
- "tokio-rustls",
- "tokio-socks",
- "tokio-tungstenite",
- "url",
- "webpki",
- "webpki-roots",
- "ws_stream_wasm",
-]
-
-[[package]]
-name = "nostr-sdk-wasm-example"
+name = "nostr-connect-wasm"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -866,7 +834,37 @@ dependencies = [
  "wasm-logger",
  "web-sys",
  "yew",
- "yew-router",
+]
+
+[[package]]
+name = "nostr-sdk"
+version = "0.20.1"
+source = "git+https://github.com/rust-nostr/nostr#e5b39760235e099275503f5692f6d78edd8fbe2e"
+dependencies = [
+ "gloo-timers",
+ "log",
+ "nostr",
+ "nostr-sdk-net",
+ "thiserror",
+ "tokio",
+ "wasm-bindgen-futures",
+]
+
+[[package]]
+name = "nostr-sdk-net"
+version = "0.20.0"
+source = "git+https://github.com/rust-nostr/nostr#e5b39760235e099275503f5692f6d78edd8fbe2e"
+dependencies = [
+ "futures-util",
+ "thiserror",
+ "tokio",
+ "tokio-rustls",
+ "tokio-socks",
+ "tokio-tungstenite",
+ "url",
+ "webpki",
+ "webpki-roots",
+ "ws_stream_wasm",
 ]
 
 [[package]]
@@ -1134,12 +1132,6 @@ dependencies = [
  "web-sys",
  "winapi",
 ]
-
-[[package]]
-name = "route-recognizer"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "afab94fb28594581f62d981211a9a4d53cc8130bbcbbb89a0440d9b8e81a7746"
 
 [[package]]
 name = "rustc_version"
@@ -1872,35 +1864,6 @@ dependencies = [
  "once_cell",
  "prettyplease",
  "proc-macro-error",
- "proc-macro2",
- "quote",
- "syn 1.0.109",
-]
-
-[[package]]
-name = "yew-router"
-version = "0.17.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "426ee0486d2572a6c5e39fbdbc48b58d59bb555f3326f54631025266cf04146e"
-dependencies = [
- "gloo",
- "js-sys",
- "route-recognizer",
- "serde",
- "serde_urlencoded",
- "tracing",
- "wasm-bindgen",
- "web-sys",
- "yew",
- "yew-router-macro",
-]
-
-[[package]]
-name = "yew-router-macro"
-version = "0.17.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "89b249cdb39e0cddaf0644dedc781854524374664793479fdc01e6a65d6e6ae3"
-dependencies = [
  "proc-macro2",
  "quote",
  "syn 1.0.109",

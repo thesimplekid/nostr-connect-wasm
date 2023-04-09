@@ -1,21 +1,27 @@
 use dashmap::DashSet;
+use nostr_sdk::prelude::ToBech32;
 use nostr_sdk::Url;
+use std::collections::HashSet;
 use std::str::FromStr;
 
-use yew::html::Scope;
-use yew::prelude::*;
-use yew_router::prelude::*;
-
 use log::debug;
+use yew::prelude::*;
+use yew::props;
 
-use crate::pages::connect::Props as ConnectProps;
-use crate::pages::{connect::Connect, home::Home};
+use crate::components::navbar::Navbar;
+use crate::components::navbar::Props as NavbarProps;
+use crate::services::nostr::DelegationInfo;
 use crate::services::nostr::NostrService;
 use crate::utils::handle_keys;
+use crate::views::connect::Props as ConnectProps;
+use crate::views::settings::DelegationInfoProp;
+use crate::views::settings::Props as SettingsProps;
+use crate::views::{connect::Connect, home::Home, settings::Settings};
 
 pub enum View {
     Home,
     Connect,
+    Settings,
 }
 
 pub enum Msg {
@@ -27,6 +33,9 @@ pub enum Msg {
     Delegate,
     ReceivedPubkey,
     DelegationSet,
+    Settings,
+    DelegationInfo(DelegationInfo),
+    Home,
 }
 
 pub struct App {
@@ -34,40 +43,35 @@ pub struct App {
     //navbar_active: bool,
     client: NostrService,
     broadcasted_event: Option<AttrValue>,
-    props: ConnectProps,
+    connect_relay: Url,
+    publish_relays: HashSet<Url>,
+    name: AttrValue,
 }
 impl Component for App {
     type Message = Msg;
     type Properties = ConnectProps;
 
     fn create(ctx: &Context<Self>) -> Self {
-        let relays = vec![Url::from_str("ws://localhost:8081").unwrap()];
+        let connect_relay = Url::from_str("ws://localhost:8081").unwrap();
+        let relays = HashSet::from_iter(vec![connect_relay.clone()]);
         let keys = handle_keys(None, true).unwrap();
 
-        let client = NostrService::new(&keys, relays[0].clone()).unwrap();
+        let client = NostrService::new(&keys, connect_relay.clone()).unwrap();
 
-        client.add_relay(relays[0].clone()).ok();
+        client.add_relay(connect_relay.clone()).ok();
 
-        let signer_pubkey_callaback = ctx.link().callback(|_| Msg::ReceivedPubkey);
+        let signer_pubkey_callback = ctx.link().callback(|_| Msg::ReceivedPubkey);
 
-        client.get_signer_pub_key(signer_pubkey_callaback).unwrap();
-
-        let co_cb = ctx.link().callback(Msg::NoteView);
-        let set_relay_callback = ctx.link().callback(Msg::SetRelay);
+        client.get_signer_pub_key(signer_pubkey_callback).unwrap();
 
         Self {
             // navbar_active: false,
             client,
             view: View::Connect,
             broadcasted_event: None,
-            // HACK: Props here feels like a hack but not sure
-            props: ConnectProps {
-                pubkey: keys.public_key().to_string().into(),
-                relay: relays,
-                name: "dartstr".into(),
-                connected_cb: co_cb,
-                set_relay_cb: set_relay_callback,
-            },
+            connect_relay,
+            publish_relays: relays,
+            name: "dartstr".into(),
         }
     }
 
@@ -103,15 +107,32 @@ impl Component for App {
             Msg::Delegate => {
                 debug!("Delegate");
                 let delegate_callback = ctx.link().callback(|_| Msg::DelegationSet);
-                self.client.get_delegate(delegate_callback).ok();
+                let delegation_info_callback = ctx.link().callback(Msg::DelegationInfo);
+
+                self.client
+                    .get_delegate(delegate_callback, delegation_info_callback)
+                    .ok();
                 true
             }
             Msg::DelegationSet => {
                 debug!("Delegation set");
+                // Since there is now a delegation there is no need for remote signer
                 self.client.create_client(DashSet::new()).ok();
                 false
             }
+            Msg::DelegationInfo(delegation_info) => {
+                self.client.set_delegation_info(delegation_info);
+                false
+            }
             Msg::ReceivedPubkey => {
+                self.view = View::Home;
+                true
+            }
+            Msg::Settings => {
+                self.view = View::Settings;
+                true
+            }
+            Msg::Home => {
                 self.view = View::Home;
                 true
             }
@@ -119,38 +140,77 @@ impl Component for App {
     }
 
     fn view(&self, ctx: &Context<Self>) -> Html {
-        let note_cb = ctx.link().callback(Msg::SubmitNote);
-        let delegate_cb = ctx.link().callback(|_| Msg::Delegate);
+        let settings_cb = ctx.link().callback(|_| Msg::Settings);
+        let home_cb = ctx.link().callback(|_| Msg::Home);
+
+        let props = props! {
+            NavbarProps {
+                settings_cb,
+                home_cb
+            }
+        };
+
         html! {
-            <BrowserRouter>
-                { self.view_nav(ctx.link()) }
+        <>
+            {
 
-                <main>
-                {
-                    match self.view {
-                        View::Home => html!{
+            html! { <Navbar .. props />}
+            }
 
-                            <>
-                            if let Some(event_id) = &self.broadcasted_event {
-                                <p>{ format!("Broadcasted event: {}", event_id)}</p>
+            {
 
-                            }
-                            <Home {note_cb} {delegate_cb}/>
-                            </>
-                        },
-                        View::Connect => html! { <Connect ..self.props.clone() /> }
+            match self.view {
+
+                View::Home => {
+                    let note_cb = ctx.link().callback(Msg::SubmitNote);
+                    let delegate_cb = ctx.link().callback(|_| Msg::Delegate);
+
+                    html!{
+                    <>
+                    if let Some(event_id) = &self.broadcasted_event {
+                        <p>{ format!("Broadcasted event: {}", event_id)}</p>
                     }
+                    <Home {note_cb} {delegate_cb}/>
+                    </>
                 }
+            },
+                View::Connect => {
+                    let connected_cb = ctx.link().callback(Msg::NoteView);
+                    let set_relay_cb = ctx.link().callback(Msg::SetRelay);
+                    let props = props! {
+                        ConnectProps {
+                            pubkey: self.client.get_app_pubkey().to_string(),
+                            connect_relay: self.connect_relay.to_string(),
+                            name: self.name.clone(),
+                            connected_cb,
+                            set_relay_cb
+                        }
+                    };
 
-                </main>
-                <footer class="footer">
-                </footer>
-            </BrowserRouter>
+                    html! { <Connect .. props /> }
+                }
+                View::Settings => {
+
+                    let delegation_info = match self.client.get_delegation_info() {
+                        Some(info) => Some(DelegationInfoProp::new(info.delegator_pubkey, info.created_after(), info.created_before())),
+                        None => None
+                    };
+                    let props = props! {
+                        SettingsProps {
+                            app_pubkey: self.client.get_app_pubkey().to_bech32().unwrap(),
+                            delegation_info: delegation_info,
+                            connect_relay: self.connect_relay.to_string(),
+                            relays: self.publish_relays.clone()
+                        }
+
+                    };
+                    html! { <Settings .. props />}
+                }
+            }
         }
-    }
-}
-impl App {
-    fn view_nav(&self, _link: &Scope<Self>) -> Html {
-        html! {}
+        <footer class="footer">
+        </footer>
+        </>
+        }
     }
 }

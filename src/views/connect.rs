@@ -4,11 +4,10 @@ use log::debug;
 use nostr_sdk::nips::nip46::NostrConnectURI;
 use nostr_sdk::secp256k1::XOnlyPublicKey;
 use nostr_sdk::url::Url;
-use web_sys::HtmlInputElement;
-use yew::prelude::*;
-
 use qrcode::render::svg;
 use qrcode::QrCode;
+use web_sys::HtmlInputElement;
+use yew::prelude::*;
 use yew::virtual_dom::VNode;
 
 #[derive(Debug)]
@@ -27,7 +26,7 @@ pub struct Props {
     #[prop_or_default]
     pub pubkey: AttrValue,
     #[prop_or_default]
-    pub relay: Vec<Url>,
+    pub connect_relay: AttrValue,
     #[prop_or_default]
     pub name: AttrValue,
     pub connected_cb: Callback<AttrValue>,
@@ -48,7 +47,7 @@ impl Component for Connect {
     fn create(ctx: &Context<Self>) -> Self {
         let connect_uri = NostrConnectURI::new(
             XOnlyPublicKey::from_str(ctx.props().pubkey.as_str()).unwrap(),
-            ctx.props().relay[0].clone(),
+            Url::from_str(&ctx.props().connect_relay).unwrap(),
             ctx.props().name.to_string(),
         );
 
@@ -85,7 +84,7 @@ impl Component for Connect {
 
                     let connect_uri = NostrConnectURI::new(
                         XOnlyPublicKey::from_str(ctx.props().pubkey.as_str()).unwrap(),
-                        ctx.props().relay[0].clone(),
+                        Url::from_str(&ctx.props().connect_relay).unwrap(),
                         ctx.props().name.to_string(),
                     );
 
