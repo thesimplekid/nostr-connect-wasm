@@ -68,7 +68,7 @@ impl Component for App {
 
         let client = NostrService::new(&keys, connect_relay.clone()).unwrap();
 
-        client.add_relay(connect_relay.clone()).ok();
+        client.add_relay(connect_relay).ok();
 
         let signer_pubkey_callback = ctx.link().callback(Msg::SetRemotePubkey);
 
@@ -153,18 +153,16 @@ impl Component for App {
                 true
             }
             Msg::Home => {
-                let view;
-
                 // If the app is not connected to a remote signer
                 // AND does not have a delegation tag
                 // Redirect to connect page
-                if self.client.get_remote_signer().is_none()
+                let view = if self.client.get_remote_signer().is_none()
                     && self.client.get_delegation_info().is_none()
                 {
-                    view = View::Connect;
+                    View::Connect
                 } else {
-                    view = View::Home;
-                }
+                    View::Home
+                };
                 self.view = view;
                 true
             }
@@ -249,7 +247,7 @@ impl Component for App {
                             app_pubkey: self.client.get_app_pubkey().to_bech32().unwrap(),
                             delegation_info: delegation_info,
                             connect_relay: self.client.get_connect_relay().to_string(),
-                            relays: self.client.get_relays().clone(),
+                            relays: self.client.get_relays(),
                             update_connect_relay_cb,
                             add_relay_cb,
                             logout_cb,

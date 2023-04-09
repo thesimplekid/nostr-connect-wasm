@@ -252,15 +252,13 @@ impl NostrService {
 
     /// Create delegation `Tag` from service delegation info
     fn delegation_tag(&self) -> Option<Tag> {
-        if let Some(delegation) = &self.delegation_info {
-            Some(Tag::Delegation {
+        self.delegation_info
+            .as_ref()
+            .map(|delegation| Tag::Delegation {
                 delegator_pk: delegation.delegator_pubkey,
                 conditions: delegation.conditions.clone(),
                 sig: delegation.signature,
             })
-        } else {
-            None
-        }
     }
 
     /// Publish a text note
