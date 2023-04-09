@@ -1,6 +1,8 @@
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
 
+use super::settings::DelegationInfoProp;
+
 enum State {
     // NotConnected,
     Connected,
@@ -17,6 +19,8 @@ pub struct Home {
 pub struct Props {
     pub note_cb: Callback<AttrValue>,
     pub delegate_cb: Callback<MouseEvent>,
+    pub delegator: Option<DelegationInfoProp>,
+    pub remote_signer: Option<AttrValue>,
 }
 
 impl Component for Home {
@@ -85,6 +89,38 @@ impl Home {
             </form>
 
             <button class="px-8 py-3 font-semibold rounded dark:bg-gray-100 dark:text-gray-800" onclick={ctx.props().delegate_cb.clone()}>{ "Delegate" } </button>
+
+            // TODO: Show what key events are being sent with
+
+            // Option 1: using the remote signer
+            // Show pubkey of signer
+            {
+            if let Some(delegator) = &ctx.props().delegator {
+                html! {
+                    <>
+                    <p class="text-4xl text-gray-900 font-extralight dark:text-white">{ format!("Publishing events with delegation from: {}", delegator.delegator_pubkey) }</p>
+                    <p class="text-4xl text-gray-900 font-extralight dark:text-white">{ format!("Delegated from {} to {}", delegator.valid_from, delegator.valid_to) }</p>
+                    <p class="text-4xl text-gray-900 font-extralight dark:text-white">{ format!("Valid for kinds: {}", delegator.kinds) }</p>
+                    </>
+
+
+                }
+            } else if let Some(remote_signer) = &ctx.props().remote_signer {
+                html! {
+                    <>
+                    <p class="text-4xl text-gray-900 font-extralight dark:text-white">{ format!("Publishing events with remote signer {}", remote_signer) }</p>
+                    </>
+                }
+            } else {
+                html!{"Not sure how you made it here, refresh I guess?"}
+            }
+            }
+
+
+
+
+            // Option 2: Delegation
+            // Show delegator and conditions
             </>
 
         }

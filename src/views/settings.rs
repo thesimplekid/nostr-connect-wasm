@@ -7,13 +7,19 @@ pub struct Settings;
 
 #[derive(PartialEq, Default, Clone)]
 pub struct DelegationInfoProp {
-    delegator_pubkey: AttrValue,
-    valid_from: AttrValue,
-    valid_to: AttrValue,
+    pub delegator_pubkey: AttrValue,
+    pub valid_from: AttrValue,
+    pub valid_to: AttrValue,
+    pub kinds: AttrValue,
 }
 
 impl DelegationInfoProp {
-    pub fn new(pubkey: XOnlyPublicKey, from: Option<u64>, to: Option<u64>) -> Self {
+    pub fn new(
+        pubkey: XOnlyPublicKey,
+        from: Option<u64>,
+        to: Option<u64>,
+        kinds: Vec<u64>,
+    ) -> Self {
         let valid_from = match from {
             Some(value) => value.to_string().into(),
             None => "Not set".into(),
@@ -29,10 +35,18 @@ impl DelegationInfoProp {
             Err(_) => pubkey.to_string().into(),
         };
 
+        let kinds = kinds
+            .iter()
+            .map(|k| k.to_string())
+            .collect::<Vec<_>>()
+            .join(", ")
+            .into();
+
         Self {
             delegator_pubkey,
             valid_from,
             valid_to,
+            kinds,
         }
     }
 }

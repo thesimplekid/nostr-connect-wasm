@@ -126,7 +126,7 @@ impl Component for App {
             }
             Msg::DelegationInfo(delegation_info) => {
                 self.client.set_delegation_info(delegation_info);
-                false
+                true
             }
             Msg::SetRemotePubkey(pubkey) => {
                 self.client.set_remote_pubkey(pubkey);
@@ -143,7 +143,7 @@ impl Component for App {
                 // If the app is not connected to a remote signer
                 // AND does not have a delegation tag
                 // Redirect to connect page
-                if self.client.get_remote_pubkey().is_none()
+                if self.client.get_remote_signer().is_none()
                     && self.client.get_delegation_info().is_none()
                 {
                     view = View::Connect;
@@ -181,13 +181,19 @@ impl Component for App {
                 View::Home => {
                     let note_cb = ctx.link().callback(Msg::SubmitNote);
                     let delegate_cb = ctx.link().callback(|_| Msg::Delegate);
+                    let delegator = match self.client.get_delegation_info() {
+                        Some(info) => Some(DelegationInfoProp::new(info.delegator_pubkey, info.created_after(), info.created_before(), info.kinds())),
+                        None => None
+                    };
+
+                    let remote_signer = self.client.get_remote_signer().map(|p| AttrValue::from(p.to_string()));
 
                     html!{
                     <>
                     if let Some(event_id) = &self.broadcasted_event {
                         <p>{ format!("Broadcasted event: {}", event_id)}</p>
                     }
-                    <Home {note_cb} {delegate_cb}/>
+                    <Home {note_cb} {delegate_cb} {delegator} {remote_signer}/>
                     </>
                 }
             },
@@ -209,7 +215,7 @@ impl Component for App {
                 View::Settings => {
 
                     let delegation_info = match self.client.get_delegation_info() {
-                        Some(info) => Some(DelegationInfoProp::new(info.delegator_pubkey, info.created_after(), info.created_before())),
+                        Some(info) => Some(DelegationInfoProp::new(info.delegator_pubkey, info.created_after(), info.created_before(), info.kinds())),
                         None => None
                     };
                     let props = props! {

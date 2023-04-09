@@ -43,7 +43,7 @@ impl DelegationInfo {
     }
 
     /// Event kinds delegation is valid for
-    pub fn _kinds(&self) -> Vec<u64> {
+    pub fn kinds(&self) -> Vec<u64> {
         self.conditions
             .inner()
             .iter()
@@ -203,7 +203,7 @@ impl NostrService {
     }
 
     /// Get remote signer pubkey
-    pub fn get_remote_pubkey(&self) -> Option<XOnlyPublicKey> {
+    pub fn get_remote_signer(&self) -> Option<XOnlyPublicKey> {
         self.remote_signer
     }
 
