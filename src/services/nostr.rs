@@ -166,6 +166,8 @@ impl NostrService {
     /// Get delegation from remote signer
     pub fn get_delegate(
         &mut self,
+        expiration_unix_time: u64,
+        kinds: Vec<u64>,
         callback: Callback<AttrValue>,
         delegation_info_cb: Callback<DelegationInfo>,
     ) -> Result<()> {
@@ -176,10 +178,13 @@ impl NostrService {
             let pubkey = client.keys().public_key();
 
             let mut conditions = Conditions::new();
+            // Set valid from time as current time
             conditions.add(Condition::CreatedAfter(Timestamp::now().as_u64()));
-            conditions.add(Condition::CreatedBefore(Timestamp::now().as_u64() + 7200));
-            conditions.add(Condition::Kind(1));
-            conditions.add(Condition::Kind(77));
+            conditions.add(Condition::CreatedBefore(expiration_unix_time));
+
+            for kind in kinds {
+                conditions.add(Condition::Kind(kind));
+            }
 
             let req = Request::Delegate {
                 public_key: pubkey,

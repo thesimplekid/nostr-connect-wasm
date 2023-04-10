@@ -41,7 +41,7 @@ pub enum Msg {
     // Home view
     Home,
     /// Send delegation request
-    Delegate,
+    Delegate((u64, Vec<u64>)),
     /// Delegation token received
     DelegationSet,
     /// Got delgation info
@@ -79,8 +79,7 @@ impl Component for App {
             client,
             view: View::Connect,
             broadcasted_event: None,
-            // publish_relays: relays,
-            name: "dartstr".into(),
+            name: "nostr connect".into(),
         }
     }
 
@@ -124,12 +123,17 @@ impl Component for App {
                 self.broadcasted_event = Some(event_id);
                 true
             }
-            Msg::Delegate => {
+            Msg::Delegate((expiration, kinds)) => {
                 let delegate_callback = ctx.link().callback(|_| Msg::DelegationSet);
                 let delegation_info_callback = ctx.link().callback(Msg::DelegationInfo);
 
                 self.client
-                    .get_delegate(delegate_callback, delegation_info_callback)
+                    .get_delegate(
+                        expiration,
+                        kinds,
+                        delegate_callback,
+                        delegation_info_callback,
+                    )
                     .ok();
                 true
             }
@@ -199,7 +203,6 @@ impl Component for App {
 
                 View::Home => {
                     let note_cb = ctx.link().callback(Msg::SubmitNote);
-                    let delegate_cb = ctx.link().callback(|_| Msg::Delegate);
                     let delegator = match self.client.get_delegation_info() {
                         Some(info) => Some(DelegationInfoProp::new(info.delegator_pubkey, info.created_after(), info.created_before(), info.kinds())),
                         None => None
@@ -212,7 +215,7 @@ impl Component for App {
                     if let Some(event_id) = &self.broadcasted_event {
                         <p>{ format!("Broadcasted event: {}", event_id)}</p>
                     }
-                    <Home {note_cb} {delegate_cb} {delegator} {remote_signer}/>
+                    <Home {note_cb} {delegator} {remote_signer}/>
                     </>
                 }
             },
@@ -237,6 +240,7 @@ impl Component for App {
                         Some(info) => Some(DelegationInfoProp::new(info.delegator_pubkey, info.created_after(), info.created_before(), info.kinds())),
                         None => None
                     };
+                    let delegation_cb = ctx.link().callback(Msg::Delegate);
 
                     let update_connect_relay_cb = ctx.link().callback(Msg::UpdateConnectRelay);
                     let add_relay_cb = ctx.link().callback(Msg::AddRelay);
@@ -251,8 +255,8 @@ impl Component for App {
                             update_connect_relay_cb,
                             add_relay_cb,
                             logout_cb,
-                            remove_relay_cb
-
+                            remove_relay_cb,
+                            delegation_cb
                         }
 
                     };

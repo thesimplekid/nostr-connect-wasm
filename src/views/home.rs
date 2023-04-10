@@ -18,7 +18,6 @@ pub struct Home {
 #[derive(Properties, PartialEq, Default, Clone)]
 pub struct Props {
     pub note_cb: Callback<AttrValue>,
-    pub delegate_cb: Callback<MouseEvent>,
     pub delegator: Option<DelegationInfoProp>,
     pub remote_signer: Option<AttrValue>,
 }
@@ -88,7 +87,6 @@ impl Home {
                 <button type="submit" value="submit" class="focus:outline-none text-white bg-purple-700 hover:bg-purple-800 focus:ring-4 focus:ring-purple-300 font-medium rounded-lg text-sm px-5 py-2.5 mb-2 dark:bg-purple-600 dark:hover:bg-purple-700 dark:focus:ring-purple-900">{ "Publish" }</button>
             </form>
 
-            <button class="px-8 py-3 font-semibold rounded dark:bg-gray-100 dark:text-gray-800" onclick={ctx.props().delegate_cb.clone()}>{ "Delegate" } </button>
 
             // TODO: Show what key events are being sent with
 

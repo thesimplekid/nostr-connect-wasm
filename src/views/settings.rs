@@ -5,6 +5,8 @@ use nostr_sdk::{nips::nip19::ToBech32, secp256k1::XOnlyPublicKey, url::Url};
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
 
+use crate::components::delegate::Delegate;
+
 #[derive(PartialEq, Default, Clone)]
 pub struct DelegationInfoProp {
     pub delegator_pubkey: AttrValue,
@@ -61,12 +63,14 @@ pub struct Props {
     pub add_relay_cb: Callback<AttrValue>,
     pub logout_cb: Callback<MouseEvent>,
     pub remove_relay_cb: Callback<Url>,
+    pub delegation_cb: Callback<(u64, Vec<u64>)>,
 }
 
 pub enum Msg {
     UpdateConnectRelay,
     AddRelay,
     DeleteRelay(Url),
+    Delegate((u64, Vec<u64>)),
 }
 
 pub struct Settings {
@@ -104,6 +108,10 @@ impl Component for Settings {
             Msg::DeleteRelay(relay) => {
                 ctx.props().remove_relay_cb.emit(relay);
             }
+            Msg::Delegate((expiration, kinds)) => {
+                debug!("Delegate: {}", expiration);
+                ctx.props().delegation_cb.emit((expiration, kinds));
+            }
         }
 
         true
@@ -112,12 +120,14 @@ impl Component for Settings {
     fn view(&self, ctx: &Context<Self>) -> Html {
         let update_connect_relay = ctx.link().callback(|_| Msg::UpdateConnectRelay);
         let add_relay = ctx.link().callback(|_| Msg::AddRelay);
+
+        let delegate_cb = ctx.link().callback(Msg::Delegate);
         html! {
             <>
             <h2 class="text-4xl font-extrabold dark:text-white">{ "Settings" }</h2>
             // Display name and key of delgator
             if let Some(delegator_info) = ctx.props().clone().delegation_info {
-                <div class="flex items-center space-x-4">
+                <div class="flex items-center space-x-4 p-3">
                     <img class="w-10 h-10 rounded-full" src="/docs/images/people/profile-picture-5.jpg" alt=""/ >
                     <div class="font-medium dark:text-white">
                         // TODO: Pull this from profile
@@ -126,12 +136,17 @@ impl Component for Settings {
                     </div>
                 </div>
 
-                <div>
+                <div class="p-4">
                     <p class="text-2xl text-gray-900 dark:text-white">{ "Delegation" }</p>
                     <p class="text-base text-gray-900 dark:text-white">{ format!("Valid: {} - {}", delegator_info.valid_from, delegator_info.valid_to) } </p>
 
                 </div>
             }
+
+            <div>
+                <Delegate {delegate_cb}/>
+            </div>
+
             // Text box of connect relay that is editable
             <div class="mb-6">
                 <label for="default-input" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">{"Connect Relay"}</label>
@@ -164,13 +179,11 @@ impl Component for Settings {
             // Text box to add relays
             <div class="mb-6">
                 <label for="default-input" class="block mb-2 text-sm font-medium text-gray-900 dark:text-white">{ "Add Relay" }</label>
-                // TODO: add call back
                 <input type="text" id="default-input" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" ref={self.new_relay.clone()}/>
             <button type="button" class="focus:outline-none text-white bg-purple-700 hover:bg-purple-800 focus:ring-4 focus:ring-purple-300 font-medium rounded-lg text-sm px-5 py-2.5 mb-2 dark:bg-purple-600 dark:hover:bg-purple-700 dark:focus:ring-purple-900" onclick={add_relay}>{ "Add Relay" } </button>
             </div>
 
             // Log out button
-            // TODO: add call back
             <button type="button" class="focus:outline-none text-white bg-purple-700 hover:bg-purple-800 focus:ring-4 focus:ring-purple-300 font-medium rounded-lg text-sm px-5 py-2.5 mb-2 dark:bg-purple-600 dark:hover:bg-purple-700 dark:focus:ring-purple-900" onclick={ctx.props().logout_cb.clone()}>{ "Log out" } </button>
             </>
         }
