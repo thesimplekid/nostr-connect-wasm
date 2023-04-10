@@ -823,6 +823,7 @@ dependencies = [
  "anyhow",
  "dashmap",
  "futures",
+ "gloo",
  "log",
  "nostr-sdk",
  "qrcode",

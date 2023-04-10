@@ -1,7 +1,9 @@
 use std::str::FromStr;
 
 use dashmap::DashSet;
-use log::debug;
+use gloo::storage::SessionStorage;
+use gloo::storage::Storage;
+use log::{debug, warn};
 use nostr_sdk::prelude::ToBech32;
 use nostr_sdk::secp256k1::XOnlyPublicKey;
 use nostr_sdk::Url;
@@ -64,7 +66,20 @@ impl Component for App {
     fn create(ctx: &Context<Self>) -> Self {
         let connect_relay = Url::from_str("ws://localhost:8081").unwrap();
         // let relays: HashSet = HashSet::from_iter(vec![connect_relay.clone()]);
-        let keys = handle_keys(None, true).unwrap();
+
+        let key: Option<String> = SessionStorage::get("priv_key").ok();
+
+        let delegation_tag: Option<String> = SessionStorage::get("delegationInfo").ok();
+
+        let view = if key.is_some() && delegation_tag.is_some() {
+            View::Home
+        } else {
+            View::Connect
+        };
+
+        let keys = handle_keys(key, true).unwrap();
+
+        SessionStorage::set("priv_key", keys.secret_key().unwrap()).expect("failed to set");
 
         let client = NostrService::new(&keys, connect_relay.clone()).unwrap();
 
@@ -77,7 +92,7 @@ impl Component for App {
         Self {
             // navbar_active: false,
             client,
-            view: View::Connect,
+            view,
             broadcasted_event: None,
             name: "nostr connect".into(),
         }
@@ -104,7 +119,11 @@ impl Component for App {
             Msg::UpdateConnectRelay(relay) => {
                 if let Ok(relay) = Url::from_str(&relay) {
                     self.client.set_connect_relay(relay);
-                    if self.client.get_delegation_info().is_none() {
+                    let delegation_info = match self.client.get_delegation_info() {
+                        Ok(Some(info)) => Some(info),
+                        _ => None,
+                    };
+                    if delegation_info.is_none() {
                         self.client.new_client_with_remote_signer();
                         let signer_pubkey_callback = ctx.link().callback(Msg::SetRemotePubkey);
                         self.client.req_signer_pub_key(signer_pubkey_callback).ok();
@@ -144,7 +163,9 @@ impl Component for App {
                 false
             }
             Msg::DelegationInfo(delegation_info) => {
-                self.client.set_delegation_info(delegation_info);
+                if self.client.set_delegation_info(delegation_info).is_err() {
+                    warn!("Could not set delegation info")
+                }
                 true
             }
             Msg::SetRemotePubkey(pubkey) => {
@@ -160,8 +181,13 @@ impl Component for App {
                 // If the app is not connected to a remote signer
                 // AND does not have a delegation tag
                 // Redirect to connect page
-                let view = if self.client.get_remote_signer().is_none()
-                    && self.client.get_delegation_info().is_none()
+
+                let delegation_info = match self.client.get_delegation_info() {
+                    Ok(Some(info)) => Some(info),
+                    _ => None,
+                };
+
+                let view = if self.client.get_remote_signer().is_none() && delegation_info.is_none()
                 {
                     View::Connect
                 } else {
@@ -172,7 +198,10 @@ impl Component for App {
             }
             Msg::LogOut => {
                 let keys = handle_keys(None, true).unwrap();
+                // Clear session
+                SessionStorage::clear();
                 self.client = NostrService::new(&keys, self.client.get_connect_relay()).unwrap();
+
                 self.view = View::Connect;
                 true
             }
@@ -204,9 +233,11 @@ impl Component for App {
                 View::Home => {
                     let note_cb = ctx.link().callback(Msg::SubmitNote);
                     let delegator = match self.client.get_delegation_info() {
-                        Some(info) => Some(DelegationInfoProp::new(info.delegator_pubkey, info.created_after(), info.created_before(), info.kinds())),
-                        None => None
+                        Ok(Some(info)) => Some(DelegationInfoProp::new(info.delegator_pubkey, info.created_after(), info.created_before(), info.kinds())),
+                        _ => None
                     };
+
+                    debug!("Delegator info: {:?}", delegator);
 
                     let remote_signer = self.client.get_remote_signer().map(|p| AttrValue::from(p.to_string()));
 
@@ -237,8 +268,8 @@ impl Component for App {
                 View::Settings => {
 
                     let delegation_info = match self.client.get_delegation_info() {
-                        Some(info) => Some(DelegationInfoProp::new(info.delegator_pubkey, info.created_after(), info.created_before(), info.kinds())),
-                        None => None
+                        Ok(Some(info)) => Some(DelegationInfoProp::new(info.delegator_pubkey, info.created_after(), info.created_before(), info.kinds())),
+                        _ => None
                     };
                     let delegation_cb = ctx.link().callback(Msg::Delegate);
 

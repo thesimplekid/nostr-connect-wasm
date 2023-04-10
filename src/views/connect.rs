@@ -13,9 +13,11 @@ enum State {
     Connect,
 }
 
+/*
 pub enum Msg {
     CopyConnect,
 }
+*/
 
 #[derive(Properties, PartialEq, Default, Clone)]
 pub struct Props {
@@ -36,7 +38,7 @@ pub struct Connect {
     connect_qr: Option<VNode>,
 }
 impl Component for Connect {
-    type Message = Msg;
+    type Message = ();
     type Properties = Props;
 
     fn create(ctx: &Context<Self>) -> Self {
@@ -63,12 +65,13 @@ impl Component for Connect {
         }
     }
 
-    fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
-        match msg {
-            Msg::CopyConnect => false,
+    /*
+        fn update(&mut self, _ctx: &Context<Self>, msg: Self::Message) -> bool {
+            match msg {
+                Msg::CopyConnect => false,
+            }
         }
-    }
-
+    */
     fn view(&self, ctx: &Context<Self>) -> Html {
         match self.state {
             State::Connect => self.connect_info(ctx),
@@ -76,7 +79,7 @@ impl Component for Connect {
     }
 }
 impl Connect {
-    fn connect_info(&self, ctx: &Context<Self>) -> Html {
+    fn connect_info(&self, _ctx: &Context<Self>) -> Html {
         html! {
         <>
         <div class="flex justify-center">
@@ -86,7 +89,8 @@ impl Connect {
               </div>
               <div class="relative">
                  <input class="block w-full p-4 text-sm text-gray-900 border border-gray-300 rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" readonly=true value={ self.connect_string.clone() }/>
-                 <button type="button" class="text-white absolute right-2.5 bottom-2.5 bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-4 py-2 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800" onclick={ctx.link().callback(|_| Msg::CopyConnect)}>{"Copy"}</button>
+                 // TODO: should be a button to copy
+                 // <button type="button" class="text-white absolute right-2.5 bottom-2.5 bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-4 py-2 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800" onclick={ctx.link().callback(|_| Msg::CopyConnect)}>{"Copy"}</button>
               </div>
            </div>
         </div>

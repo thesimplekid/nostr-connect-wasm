@@ -2,17 +2,19 @@ use std::{collections::HashSet, sync::Arc};
 
 use anyhow::Result;
 use dashmap::DashSet;
+use gloo::storage::{SessionStorage, Storage};
 use log::{debug, error, warn};
 use nostr_sdk::{
     prelude::*,
     secp256k1::{schnorr::Signature, XOnlyPublicKey},
     Client, Keys, Url,
 };
+use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 use wasm_bindgen_futures::spawn_local;
 use yew::{AttrValue, Callback};
 
-#[derive(Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DelegationInfo {
     pub delegator_pubkey: XOnlyPublicKey,
     pub conditions: Conditions,
@@ -63,11 +65,11 @@ pub struct NostrService {
     connect_relay: Url,
     relays: DashSet<Url>,
     remote_signer: Option<XOnlyPublicKey>,
-    delegation_info: Option<DelegationInfo>,
 }
 
 impl NostrService {
     pub fn new(keys: &Keys, relay: Url) -> Result<Self> {
+        SessionStorage::set("priv_key", keys.secret_key().unwrap()).expect("failed to set");
         let relays = DashSet::new();
         relays.insert(relay.clone());
 
@@ -81,7 +83,6 @@ impl NostrService {
             connect_relay: relay,
             relays,
             keys: keys.clone(),
-            delegation_info: None,
             remote_signer: None,
         })
     }
@@ -212,13 +213,19 @@ impl NostrService {
     }
 
     /// Set the app delegation info
-    pub fn set_delegation_info(&mut self, delegation_info: DelegationInfo) {
-        self.delegation_info = Some(delegation_info);
+    pub fn set_delegation_info(&mut self, delegation_info: DelegationInfo) -> Result<()> {
+        SessionStorage::set("delegationInfo", serde_json::to_string(&delegation_info)?)?;
+        Ok(())
     }
 
     /// Get the app delegation info
-    pub fn get_delegation_info(&self) -> Option<DelegationInfo> {
-        self.delegation_info.to_owned()
+    pub fn get_delegation_info(&self) -> Result<Option<DelegationInfo>> {
+        if let Ok(Some(info)) = SessionStorage::get::<Option<String>>("delegationInfo") {
+            // TODO: should check that tag is valid
+            return Ok(Some(serde_json::from_str(info.as_str())?));
+        }
+
+        Ok(None)
     }
 
     /// Wait for pubkey of signer
@@ -256,14 +263,16 @@ impl NostrService {
     }
 
     /// Create delegation `Tag` from service delegation info
-    fn delegation_tag(&self) -> Option<Tag> {
-        self.delegation_info
-            .as_ref()
-            .map(|delegation| Tag::Delegation {
-                delegator_pk: delegation.delegator_pubkey,
-                conditions: delegation.conditions.clone(),
-                sig: delegation.signature,
-            })
+    fn delegation_tag(&self) -> Result<Option<Tag>> {
+        let delegation_info = self.get_delegation_info()?;
+
+        let tag = delegation_info.map(|delegation| Tag::Delegation {
+            delegator_pk: delegation.delegator_pubkey,
+            conditions: delegation.conditions.clone(),
+            sig: delegation.signature,
+        });
+
+        Ok(tag)
     }
 
     /// Publish a text note
@@ -271,10 +280,17 @@ impl NostrService {
         let client = self.client.clone();
         let content = content.to_owned();
         let delegation_tag = self.delegation_tag();
+        debug!("Tet: {:?}", delegation_tag);
         spawn_local(async move {
             let tag = match delegation_tag {
-                Some(tag) => vec![tag],
-                None => vec![],
+                Ok(Some(tag)) => {
+                    vec![tag]
+                }
+                Err(err) => {
+                    warn!("Could not get delegation tag: {}", err);
+                    vec![]
+                }
+                _ => vec![],
             };
 
             let event_id = client

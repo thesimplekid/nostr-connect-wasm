@@ -7,7 +7,7 @@ use yew::prelude::*;
 
 use crate::components::delegate::Delegate;
 
-#[derive(PartialEq, Default, Clone)]
+#[derive(Debug, PartialEq, Default, Clone)]
 pub struct DelegationInfoProp {
     pub delegator_pubkey: AttrValue,
     pub valid_from: AttrValue,
