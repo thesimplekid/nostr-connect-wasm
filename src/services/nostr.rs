@@ -1,4 +1,4 @@
-use std::{collections::HashSet, sync::Arc};
+use std::{collections::HashSet, str::FromStr, sync::Arc};
 
 use anyhow::Result;
 use dashmap::DashSet;
@@ -68,22 +68,65 @@ pub struct NostrService {
 }
 
 impl NostrService {
-    pub fn new(keys: &Keys, relay: Url) -> Result<Self> {
+    pub fn new(
+        keys: &Keys,
+        remote_signer_pubkey: Option<XOnlyPublicKey>,
+        connect_relay: Url,
+    ) -> Result<Self> {
         SessionStorage::set("priv_key", keys.secret_key().unwrap()).expect("failed to set");
         let relays = DashSet::new();
-        relays.insert(relay.clone());
+        relays.insert(connect_relay.clone());
 
-        let remote_signer = RemoteSigner::new(relay.clone(), None);
+        let remote_signer = RemoteSigner::new(connect_relay.clone(), remote_signer_pubkey);
         let client = Client::with_remote_signer(keys, remote_signer);
         let client = Arc::new(Mutex::new(client));
+
+        let client_clone = client.clone();
+        let connect_relay_clone = connect_relay.clone();
+        spawn_local(async move {
+            let client = client_clone.lock().await;
+            client.add_relay(connect_relay_clone).await.unwrap();
+            client.connect().await;
+        });
 
         // Spawn an thread that just listens for event
         Ok(Self {
             client,
-            connect_relay: relay,
+            connect_relay,
             relays,
             keys: keys.clone(),
+            remote_signer: remote_signer_pubkey,
+        })
+    }
+
+    pub fn new_without_remote(keys: &Keys, relays: DashSet<Url>) -> Result<Self> {
+        SessionStorage::set("priv_key", keys.secret_key().unwrap()).expect("failed to set");
+        // TODO: Save relays
+        let client = Client::new(keys);
+
+        let client = Arc::new(Mutex::new(client));
+
+        let client_clone = client.clone();
+        let relays_clone = relays.clone();
+        spawn_local(async move {
+            let client = client_clone.lock().await;
+
+            if let Err(err) = client
+                .add_relays(relays_clone.iter().map(|r| r.to_string()).collect())
+                .await
+            {
+                warn!("Could not add relays {}", err);
+            }
+
+            client.connect().await;
+        });
+
+        Ok(Self {
+            client,
+            connect_relay: Url::from_str("ws://localhost:8081").unwrap(),
+            keys: keys.clone(),
             remote_signer: None,
+            relays,
         })
     }
 
@@ -130,6 +173,7 @@ impl NostrService {
         self.keys.public_key()
     }
 
+    /// Create a new nostr client with a remote signer
     pub fn new_client_with_remote_signer(&mut self) {
         let client = self.client.clone();
         let connect_relay = self.connect_relay.clone();
@@ -221,10 +265,19 @@ impl NostrService {
     /// Get the app delegation info
     pub fn get_delegation_info(&self) -> Result<Option<DelegationInfo>> {
         if let Ok(Some(info)) = SessionStorage::get::<Option<String>>("delegationInfo") {
-            // TODO: should check that tag is valid
-            return Ok(Some(serde_json::from_str(info.as_str())?));
-        }
+            let delegation_info: DelegationInfo = serde_json::from_str(info.as_str())?;
 
+            if verify_delegation_signature(
+                delegation_info.delegator_pubkey,
+                delegation_info.signature,
+                self.keys.public_key(),
+                delegation_info.conditions.clone(),
+            )
+            .is_ok()
+            {
+                return Ok(Some(delegation_info));
+            }
+        }
         Ok(None)
     }
 
@@ -240,6 +293,13 @@ impl NostrService {
             match client.req_signer_public_key(None).await {
                 Ok(_) => {
                     let remote = client.remote_signer().unwrap().signer_public_key().await;
+
+                    if let Some(remote) = remote {
+                        if let Err(err) = SessionStorage::set("remote_pub_key", remote.to_string())
+                        {
+                            warn!("Could not set remote pubkey {}", err);
+                        }
+                    }
                     callback.emit(remote);
                 }
                 Err(err) => {

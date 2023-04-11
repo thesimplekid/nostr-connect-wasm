@@ -68,26 +68,40 @@ impl Component for App {
         // let relays: HashSet = HashSet::from_iter(vec![connect_relay.clone()]);
 
         let key: Option<String> = SessionStorage::get("priv_key").ok();
+        let keys = handle_keys(key, true).unwrap();
+        let remote_pubkey: Option<String> = SessionStorage::get("remote_pub_key").ok();
+        let remote_pubkey = match remote_pubkey {
+            Some(key) => XOnlyPublicKey::from_str(&key).ok(),
+            None => None,
+        };
 
         let delegation_tag: Option<String> = SessionStorage::get("delegationInfo").ok();
 
-        let view = if key.is_some() && delegation_tag.is_some() {
-            View::Home
-        } else {
-            View::Connect
+        // TODO: Clean this up
+        // If there is a remote pubkey saved to session sotrange then create client with that as remote pubkey
+        // If there is a VALID delegation tag saved to storage create a client without a remote and use the tag
+        let (client, view) = match (remote_pubkey, delegation_tag) {
+            (Some(_remote_key), Some(_tag)) => {
+                let relays = DashSet::new();
+                // TODO: Dont hard code this
+                relays.insert(Url::from_str("ws://localhost:8081").unwrap());
+
+                let client = NostrService::new_without_remote(&keys, relays).unwrap();
+
+                (client, View::Home)
+            }
+            (Some(_remote_pubkey), None) => {
+                let client = NostrService::new(&keys, remote_pubkey, connect_relay).unwrap();
+                (client, View::Home)
+            }
+            _ => {
+                let client = NostrService::new(&keys, None, connect_relay).unwrap();
+                let signer_pubkey_callback = ctx.link().callback(Msg::SetRemotePubkey);
+
+                client.req_signer_pub_key(signer_pubkey_callback).unwrap();
+                (client, View::Connect)
+            }
         };
-
-        let keys = handle_keys(key, true).unwrap();
-
-        SessionStorage::set("priv_key", keys.secret_key().unwrap()).expect("failed to set");
-
-        let client = NostrService::new(&keys, connect_relay.clone()).unwrap();
-
-        client.add_relay(connect_relay).ok();
-
-        let signer_pubkey_callback = ctx.link().callback(Msg::SetRemotePubkey);
-
-        client.req_signer_pub_key(signer_pubkey_callback).unwrap();
 
         Self {
             // navbar_active: false,
@@ -200,7 +214,8 @@ impl Component for App {
                 let keys = handle_keys(None, true).unwrap();
                 // Clear session
                 SessionStorage::clear();
-                self.client = NostrService::new(&keys, self.client.get_connect_relay()).unwrap();
+                self.client =
+                    NostrService::new(&keys, None, self.client.get_connect_relay()).unwrap();
 
                 self.view = View::Connect;
                 true
